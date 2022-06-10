@@ -123,6 +123,8 @@ configure_file(
   ${OPENROAD_HOME}/include/ord/Version.hh
   )
 
+SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -lncurses")
+
 ################################################################
 
 # Ask CMake to output a compile_commands.json file for use with things like clang-tidy
