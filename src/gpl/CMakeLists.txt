@@ -54,7 +54,8 @@ target_sources(gpl
   PRIVATE
     src/MakeReplace.cpp
     src/replace.cpp
-    src/initialPlace.cpp
+    # src/initialPlace.cpp
+    src/initialPlace.cu
     src/nesterovPlace.cpp
     src/placerBase.cpp
     src/nesterovBase.cpp
