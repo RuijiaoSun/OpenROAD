@@ -23,6 +23,8 @@ exec tclsh $0 ${1+"$@"}
 
 # Directory containing tests.
 set test_dir [file dirname [file normalize [info script]]]
+puts [info script]
+puts $test_dir
 set openroad_dir [file dirname [file dirname [file dirname $test_dir]]]
 
 source [file join $openroad_dir "test" "regression.tcl"]
