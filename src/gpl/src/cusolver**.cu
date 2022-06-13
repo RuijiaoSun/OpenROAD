@@ -42,6 +42,38 @@
 
 #include "utl/Logger.h"
 
+#include "cusparse.h"
+#include "cusolverSp.h"
+#include <cuda_runtime.h>
+#include <math.h>
+
+#define CUDA_ERROR(value) do {
+    cudaError_t m_cudaStat = value;
+    if(m_cudaStat != cudaSuccess){
+        fprintf(stderr, "Error %s at line %d in file %s\n",
+            cudaGetErrorString(m_cudaStat), __LINE__, __FILE__);
+        exit(-1);
+    }
+}while(0)
+
+#define CUSPARSE_ERROR(value) do {
+    cusparseStatus_t m_Stat = value;
+    if(m_Stat != CUSPARSE_STATUS_SUCCESS){
+        fprintf(stderr, "Error %d at line %d in file %s\n",
+            (int)m_Stat, __LINE__, __FILE__);
+        exit(-5);
+    }
+}while(0)
+
+#define CUSOLVER_ERROR(value) do {
+    cusolverStatus_t m_Stat = value;
+    if(m_Stat != CUSOLVER_STATUS_SUCCESS){
+        fprintf(stderr, "Error %d at line %d in file %s\n",
+            (int)m_Stat, __LINE__, __FILE__);
+        exit(-5);
+    }
+}while(0)
+
 namespace gpl {
 using namespace std;
 
@@ -84,48 +116,11 @@ void InitialPlace::reset() {
   ipVars_.reset();
 }
 
-// test if GPU works
-__global__ void InitialPlace::Add(int n, float*x, float *y){
-
-    int id = blockDim.x *blockIdx.x + threadIdx.x;
-    if(id < n)  y[id] += x[id];
-}
-
-void InitialPlace::vectorAdd(){
-    size_t N = 1500;
-    size_t bytes = N * sizeof(float);
-    float* A = (float*)malloc(bytes);
-    float* B = (float*)malloc(bytes);
-    for (int i = 0; i < N; i++){
-        A[i] = 1.0;
-        B[i] = 1.2;
-    }
-
-    float *d_A, *d_B;
-    cudaMalloc(&d_A, bytes);
-    cudaMalloc(&d_B, bytes);
-
-    cudaMemcpy(d_A, A, bytes, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, B, bytes, cudaMemcpyHostToDevice);
-
-    Add<<<32, 32>>>(n, d_A, d_B);
-
-    cudaMemcpy(B, d_B, bytes, cudaMemcpyDeviceToHost);
-    for(int i = 0; i < n, i++)
-        printf(B[i]);
-
-    free(A);
-    free(B);
-
-    cudaFree(d_A);
-    cudaFree(d_B);
-}
-
 #ifdef ENABLE_CIMG_LIB
 static PlotEnv pe;
 #endif
 
-void InitialPlace::doBicgstabPlace() {
+__global__ void InitialPlace::doBicgstabPlace() {
   float errorX = 0.0f, errorY = 0.0f;
 
 #ifdef ENABLE_CIMG_LIB
@@ -146,6 +141,102 @@ void InitialPlace::doBicgstabPlace() {
   for(int i=1; i<=ipVars_.maxIter; i++) {
     updatePinInfo();
     createSparseMatrix();
+
+    // BiCGSTAB solver for initial place
+    BiCGSTAB< SMatrix, IdentityPreconditioner > solver;
+    solver.setMaxIterations(ipVars_.maxSolverIter);
+    solver.compute(placeInstForceMatrixX_);
+    instLocVecX_ = solver.solveWithGuess(fixedInstForceVecX_, instLocVecX_);
+    errorX = solver.error();
+
+    solver.compute(placeInstForceMatrixY_);
+    instLocVecY_ = solver.solveWithGuess(fixedInstForceVecY_, instLocVecY_);
+    errorY = solver.error();
+
+    log_->report("[InitialPlace]  Iter: {} CG residual: {:0.8f} HPWL: {}",
+       i, max(errorX, errorY), pb_->hpwl());
+    updateCoordi();
+
+#ifdef ENABLE_CIMG_LIB
+    if (PlotEnv::isPlotEnabled()) pe.SaveCellPlotAsJPEG(
+        string("InitPlace ") + to_string(i), false,
+        string("ip_") + to_string(i));
+#endif
+
+    if (graphics) {
+        graphics->cellPlot(true);
+    }
+
+    if( max(errorX, errorY) <= 1e-5 && i >= 5 ) {
+      break;
+    }
+  }
+}
+
+
+
+void InitialPlace::g_doBicgstabPlace() {
+  float errorX = 0.0f, errorY = 0.0f;
+
+#ifdef ENABLE_CIMG_LIB
+  pe.setPlacerBase(pb_);
+  pe.setLogger(log_);
+  pe.Init();
+#endif
+
+  std::unique_ptr<Graphics> graphics;
+  if (ipVars_.debug && Graphics::guiActive()) {
+    graphics = make_unique<Graphics>(log_, pb_);
+  }
+
+  placeInstsCenter();
+
+  // set ExtId for idx reference // easy recovery
+  setPlaceInstExtId();
+  for(int i=1; i<=ipVars_.maxIter; i++) {
+    updatePinInfo();
+    // Create the matrix
+    createSparseMatrix();
+
+    double tol = 1;
+    double max_lambda0, max_lambda;
+    double* d_instLocVecX_;
+    double* d_fixedLocVecX_;
+    
+    double* d_placeInstForceMatrixX_;
+    // Allocate device memeory and copy data to device
+    CUDA_ERROR(cudaMalloc((void**)&d_placeInstForceMatrixX_, placeInstForceMatrixC_.size() * sizeof(double)));
+    CUDA_ERROR(cudaMemcpy(d_placeInstForceMatrixX_, placeInstForceMatrixX_, (size_t)(placeInstForceMatrixC_.size() * sizeof(double))));
+
+    CUDA_ERROR(cudaMalloc(&d_instLocVecX_, sizeof(double)));
+    CUDA_ERROR(cudaMemset(d_instLocVecX_, 0, sizeof(double)));
+
+    // Initializ cuSparse and cuSolver
+    CUSOLVER_ERROR(cusolverSpCreate(&handleCusolver));
+    CUSPARSE_ERROR(cusparseCreate(&handleCusparse));
+
+    // Create and define cusparse descriptor
+    CUSPARSE_ERROR(cusparseCreateMatDescr(&descrA));
+    CUSPARSE_ERROR(cusparseSetMatType(descrA, CUSPARSE_MATRIX_TYPE_GENERAL));
+    CUSPARSE_ERROR(cusparseSetMatIndexBase(descrA, CUSPARSE_INDEX_BASE_ZERO));
+
+    // Call fixedInstForceVecX_
+    int nnz = number of nonzero values in matrix.
+    cusolverStatus_t statCusolver = cusolverSpDcsreigvsi(handleCusolver, fixedInstForceVecX_.size(), nnz, descrA, d_cooVal, d_csrRowtr, d_cooColIndex, max_lambda_0, d_instLocVecX_, ipVars_.maxSolverIter, tol, max_lambda, d_eigenvector);
+
+    // Sync and Copy data to host
+    cudaDeviceSyncronize();
+    CUDA_ERROR(cudaGetLastError());
+    CUDA_ERROR(cudaMemcpy(&instLocVecX_, d_instLocVecX_, (size_t)(instLocVecX_.size()), cudaMemcpyDeviceToHost));
+    
+    // Destroy what is not needed in both of device and host
+    CUDA_ERROR(cusparseDestoryMatDescr(descrA));
+    CUDA_ERROR(cusparseDestroy(handleCusparse));
+    CUDA_ERROR(cusolverSpDestory(handleCusolver));
+    CUDA_ERROR(cudaFree(d_placeInstForceMatrix));
+    CUDA_ERROR(cudaFree(d_instLocVecX_));
+
+    // delete [] sth;    
 
     // BiCGSTAB solver for initial place
     BiCGSTAB< SMatrix, IdentityPreconditioner > solver;
