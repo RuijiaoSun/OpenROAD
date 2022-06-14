@@ -71,6 +71,7 @@ class InitialPlace {
     ~InitialPlace();
 
     void doBicgstabPlace();
+    void vectorAdd();
 
   private:
     InitialPlaceVars ipVars_;

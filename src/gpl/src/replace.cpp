@@ -254,14 +254,14 @@ void Replace::doInitialPlace()
   std::unique_ptr<InitialPlace> ip(new InitialPlace(ipVars, pb_, log_));
   ip_ = std::move(ip);
   ip_->doBicgstabPlace();
-  
-  // Rachel start
-  bool GPU = 1;
-  if (GPU)
-    ip_->g_doBicgstabPlace();
-  else
-    ip_->doBicgstabPlace();
-  // Rachel end
+  ip_->vectorAdd();
+  // // Rachel start
+  // bool GPU = 1;
+  // if (GPU)
+  //   ip_->g_doBicgstabPlace();
+  // else
+  //   ip_->doBicgstabPlace();
+  // // Rachel end
 }
 
 void Replace::initNesterovPlace() {
