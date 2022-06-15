@@ -264,7 +264,7 @@ void InitialPlace::createSparseMatrix() {
       continue;
     }
  
-    // escape long time cals on huge fanout.
+    // escape long time calculations? on huge fanout.
     //
     if( net->pins().size() >= ipVars_.maxFanout) { 
       continue;
@@ -291,13 +291,9 @@ void InitialPlace::createSparseMatrix() {
             pin2->isMinPinX() || pin2->isMaxPinX() ) {
           int diffX = abs(pin1->cx() - pin2->cx());
           float weightX = 0;
-          if( diffX > ipVars_.minDiffLength ) {
-            weightX = netWeight / diffX;
-          }
-          else {
-            weightX = netWeight 
-              / ipVars_.minDiffLength;
-          }
+
+          weightX = netWeight / max(diffX, ipVars_.minDiffLength);
+         
           //cout << weightX << endl;
 
           // both pin cames from instance
@@ -372,7 +368,6 @@ void InitialPlace::createSparseMatrix() {
 
             listY.push_back( T(inst1, inst2, -weightY) );
             listY.push_back( T(inst2, inst1, -weightY) );
-
             fixedInstForceVecY_(inst1) += 
               -weightY * (
               (pin1->cy() - pin1->instance()->cy()) - 

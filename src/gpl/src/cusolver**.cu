@@ -211,7 +211,7 @@ void InitialPlace::g_doBicgstabPlace() {
     CUDA_ERROR(cudaMalloc(&d_instLocVecX_, sizeof(double)));
     CUDA_ERROR(cudaMemset(d_instLocVecX_, 0, sizeof(double)));
 
-    // Initializ cuSparse and cuSolver
+    // Initialize cuSparse and cuSolver
     CUSOLVER_ERROR(cusolverSpCreate(&handleCusolver));
     CUSPARSE_ERROR(cusparseCreate(&handleCusparse));
 
@@ -225,7 +225,7 @@ void InitialPlace::g_doBicgstabPlace() {
     cusolverStatus_t statCusolver = cusolverSpDcsreigvsi(handleCusolver, fixedInstForceVecX_.size(), nnz, descrA, d_cooVal, d_csrRowtr, d_cooColIndex, max_lambda_0, d_instLocVecX_, ipVars_.maxSolverIter, tol, max_lambda, d_eigenvector);
 
     // Sync and Copy data to host
-    cudaDeviceSyncronize();
+    cudaDeviceSynchronize();
     CUDA_ERROR(cudaGetLastError());
     CUDA_ERROR(cudaMemcpy(&instLocVecX_, d_instLocVecX_, (size_t)(instLocVecX_.size()), cudaMemcpyDeviceToHost));
     
