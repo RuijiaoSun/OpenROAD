@@ -20,9 +20,7 @@ add_executable(small
 			solvers.cu
 )
 
-target_link_libraries(small ${CUDA_LIBRARIES}
-			${CUSP_LIBRARIES}
-			${CUDA_CUBLAS_LIBRARIES}
+target_link_libraries(small
 			${CUDA_cusparse_LIBRARY}
 			${CUDA_cusolver_LIBRARY}
 )

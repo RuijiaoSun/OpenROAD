@@ -1,7 +1,7 @@
 #include "solvers.h"
 int main(){
 
-    //Get triplets
+    // Initialize triplets for the matrix
     std::vector<int> rowInd;
     std::vector<int> colInd;
     std::vector<float> val;
@@ -22,8 +22,9 @@ int main(){
     b.push_back(8.3);
 
     x.resize(b.size());
-
+    // test the iterative CUSP solver
     x = cuspSolver(&rowInd, &colInd, &val, &b);
+    // // test the direct CUDA solver
     // x = cudaSolver(&rowInd, &colInd, &val, &b);
     std::cout << x[0] << "," << x[1] << std::endl;
 

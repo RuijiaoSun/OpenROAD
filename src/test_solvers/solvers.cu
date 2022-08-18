@@ -112,7 +112,6 @@ std::vector<float> cuspSolver(std::vector<int>* rowInd, std::vector<int>* colInd
             DeviceIndexArrayView,
             DeviceValueArrayView> DeviceView;
 
-
     // construct a coo_matrix_view from the array1d_views
     DeviceView b_A(m, m, nnz, row_indices, column_indices, values);
 
