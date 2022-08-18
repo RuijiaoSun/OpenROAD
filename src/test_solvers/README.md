@@ -3,7 +3,7 @@ This is a test project aiming to test the direct CUDA solver (https://docs.nvidi
 
 ## Process
 The direct CUDA solver extracts the COO format, {
-  rowIndex, colIndex, value}, transforms the COO format to the CSR, and solves it using cuSolver. The cusolver function uses QR decomposition to get the inversion of the matrix, and multiply it with the RHS vector.
+  rowIndex, columnIndex, value}, transforms the COO format to the CSR, and solves it using cuSolver. The cusolver function uses QR decomposition to get the inversion of the matrix, and multiply it with the RHS vector.
 The iterative CUSP solver refines the initial solution in each iteration to approach the real answer.
 
 ## Build

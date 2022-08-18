@@ -1,32 +1,19 @@
 #include "solvers.h"
-int main(){
+int main()
+{
+  // Initialize triplets for the matrix
+  std::vector<int> rowIndex = {0, 1, 1};
+  std::vector<int> columnIndex = {1, 0, 1};
+  std::vector<float> value = {1.0, 2.0, 3.0};
+  // b is the right-hand-side vector
+  std::vector<float> b = {1.7, 8.3};
 
-    // Initialize triplets for the matrix
-    std::vector<int> rowInd;
-    std::vector<int> colInd;
-    std::vector<float> val;
-    rowInd.push_back(0);
-    rowInd.push_back(1);
-    rowInd.push_back(1);
-    colInd.push_back(1);
-    colInd.push_back(0);
-    colInd.push_back(1);
-    val.push_back(1);
-    val.push_back(2);
-    val.push_back(3);
+  // test the iterative CUSP solver
+  std::vector<float> x = cuspSolver(&rowIndex, &columnIndex, &value, &b);
 
-    std::vector<float> b;
-    std::vector<float> x;
-    
-    b.push_back(1.7);
-    b.push_back(8.3);
+  // // test the direct CUDA solver
+  // std::vector<float> x = cudaSolver(&rowIndex, &columnIndex, &value, &b);
+  std::cout << x[0] << "," << x[1] << std::endl;
 
-    x.resize(b.size());
-    // test the iterative CUSP solver
-    x = cuspSolver(&rowInd, &colInd, &val, &b);
-    // // test the direct CUDA solver
-    // x = cudaSolver(&rowInd, &colInd, &val, &b);
-    std::cout << x[0] << "," << x[1] << std::endl;
-
-    return 0;
+  return 0;
 }
